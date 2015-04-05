@@ -1,0 +1,248 @@
+/* HW 4 */
+
+#include <iostream>
+#include <fstream>
+#include <map>
+#include <cstdlib>
+#include <string>
+#include <signal.h>
+#include <stdio.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <sys/wait.h>
+#include <stdlib.h>
+#include <netdb.h>
+#include <unistd.h>
+#include <errno.h>
+
+
+using namespace std;
+
+#define BUF_SIZE 64
+#define BACKLOG 8
+
+
+void handle_client(
+		   int peer_sockfd, 
+		   const struct sockaddr_in6 *peer_addr,
+		   socklen_t peer_addrlen
+		   , string command) {
+  int ret;
+  char host[80];
+  char svc[80];
+
+  
+  ret = getnameinfo(
+		    (struct sockaddr *)peer_addr, peer_addrlen,
+		    host, sizeof(host),
+		    svc, sizeof(svc),
+		    NI_NUMERICSERV
+		    );
+
+  if (ret != 0) {
+    fprintf(
+	    stderr, "getnameinfo() failed: %s\n",
+	    gai_strerror(ret)
+	    );
+  } else {
+    fprintf(
+	    stderr, "[process %d] accepted connection from %s:%s\n",
+	    getpid(), host, svc
+	    );
+  }
+  
+
+  sleep(2);
+  
+  dup2(peer_sockfd , STDIN_FILENO);
+  dup2(peer_sockfd , STDOUT_FILENO);
+
+  /* executing the command */
+  execl("/bin/sh" , "/bin/sh" , "-c" , command.c_str() , NULL);
+  
+  /* close down the socket */
+  close(peer_sockfd);
+
+}
+
+
+void setup_sa_nocldwait( ) {
+  struct sigaction sa;
+  memset(&sa, 0, sizeof(sa));
+
+  /* continue to use the default SIGCHLD handler */
+  sa.sa_handler = SIG_DFL;
+  /* don't turn children into zombies */
+  sa.sa_flags = SA_NOCLDWAIT;
+
+  if (sigaction(SIGCHLD, &sa, NULL) != 0) {
+    perror("sigaction");
+    fprintf(stderr, "warning: failed to set SA_NOCLDWAIT\n");
+  }
+}
+
+
+int setup_listeners(int sockets[], int n_sockets, int first_port) {
+  struct sockaddr_in6 bindaddr;
+
+  /* set common fields in bindaddr */
+  memset(&bindaddr, 0, sizeof(bindaddr));
+  bindaddr.sin6_family = AF_INET6;
+  memcpy(&bindaddr.sin6_addr, &in6addr_any, sizeof(in6addr_any));
+
+  for (int i = 0; i < n_sockets; i++) {
+    /* create socket */
+    sockets[i] = socket(AF_INET6, SOCK_STREAM, 0);
+    if (sockets[i] == -1) {
+      perror("socket");
+      return -1;
+    }
+
+    /* bind socket to port */
+    bindaddr.sin6_port = htons(first_port + i);
+    if (bind(
+	     sockets[i],
+	     (struct sockaddr *) &bindaddr,
+	     sizeof(bindaddr)
+	     ) != 0) {
+      perror("bind");
+      return -1;
+    }
+
+    /* start listening */
+    if (listen(sockets[i], BACKLOG) != 0) {
+      perror("listen");
+      return -1;
+    }
+  }
+
+  return 0;
+}
+
+
+void do_accept(int listen_sockfd, string command) {
+  int peer_sockfd;
+  struct sockaddr_in6 src;
+  socklen_t srclen;
+  pid_t child;
+
+  /* accept the connection */
+  srclen = sizeof(src);
+  peer_sockfd = accept(
+		       listen_sockfd, 
+		       (struct sockaddr *)&src, 
+		       &srclen
+		       );
+
+  if (peer_sockfd < 0) {
+    perror("accept");
+    return;
+  }
+
+  child = fork();
+  if (child == -1) {
+    perror("fork");
+  } else if (child == 0) {
+    handle_client(peer_sockfd, &src, srclen, command);
+    exit(0);
+  }
+
+  close(peer_sockfd);
+}
+
+int main(int argc, char *argv[]) {
+  /* check number of input arguements */
+  if(argc != 2) {
+    cerr << "ERROR: Incorrect number of arguements"<<endl;
+    exit(0);
+  }
+
+  /* create input stream */
+  ifstream read_file(argv[1]);
+  if(!read_file) {
+    cerr<<"ERROR: No input file"<<endl;
+    exit(0);
+  }
+
+  int first_port = 0;
+  int port = 0;
+  string command = "", line, port_str = "";
+
+  /* map to store port number and 
+   corresponding command for the port */
+  map<int , string> input;
+
+  /* reading input file */
+  int index = 0;
+  while(getline(read_file , line)) {
+    while(line[index] != ' ') {
+      port_str = port_str + line[index];
+      index++;
+    }
+   
+    index++;
+    while(index != line.size()) {
+      command = command + line[index];
+      index++;
+    }
+
+    port = atoi(port_str.c_str());
+    
+    input[port] = command;
+    if(input.size() == 1) first_port = port;
+
+    port_str = "";
+    command = port_str;
+    index = 0;
+  }   
+
+  /* in case the file is empty */
+  if(input.size() == 0) {
+    cerr << "ERROR: No ports found"<<endl;
+    exit(0);
+  }
+
+  int listen_sockfds[input.size()];
+
+  fd_set rfds;
+  int maxfd = 0;
+  
+  /* Set up SIGCHLD handler with SA_NOCLDWAIT (option 3) */
+  setup_sa_nocldwait( );
+
+  /* Set up our listening sockets. */
+  setup_listeners(listen_sockfds, input.size(), first_port);
+  
+  /* Loop infinitely, accepting any connections we get. */
+  for (;;) {
+    /* Initialize our fd_set. */
+    FD_ZERO(&rfds);
+    maxfd = 0;
+    for (int i = 0; i < input.size(); i++) {
+      FD_SET(listen_sockfds[i], &rfds);
+      if (listen_sockfds[i] > maxfd) {
+	maxfd = listen_sockfds[i];
+      }
+    }
+
+    /* Call select() and handle errors. */
+    if (select(maxfd + 1, &rfds, NULL, NULL, NULL) == -1) {
+      if (errno == EINTR) {
+	continue;
+      } else {
+	perror("select");
+	return 0;
+      }
+    }
+
+    /* Iterate through fds, finding any that are ready. */
+    for (int i = 0; i < input.size(); i++) {
+      if (FD_ISSET(listen_sockfds[i], &rfds)) {
+	/* accept and fork the child process */
+	do_accept(listen_sockfds[i], input[first_port + i]);
+      }
+    }
+  }
+
+}

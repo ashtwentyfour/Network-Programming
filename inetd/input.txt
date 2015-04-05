@@ -1,0 +1,2 @@
+12345 echo "hello world" 
+12346 cat /usr/share/dict/words

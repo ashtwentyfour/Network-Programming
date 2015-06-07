@@ -1,0 +1,71 @@
+<html>
+        <head>
+                <title>NetProg Homework 6</title>
+                <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+                <script>
+// your solution goes here!
+                   
+                  $(document).ready(function() {
+
+                    var imagetag = $("img");
+                                
+                    $("#unwrapImages").click(function() {  // for the Unwrap button
+                       if(imagetag.parent().is("div")) {
+                            imagetag.unwrap();
+                     }
+                    } );
+
+                    $("#addBorder").click(function() {  // for the AddBorder button
+                       imagetag.addClass("imageBorder");
+                    } );
+                        
+
+                    $("#removeBorder").click(function() {  // for the RemoveBorder button
+                       imagetag.removeClass("imageBorder");
+                    } );          
+
+                     
+                    $("#toggleBorder").click(function() {  // for the toggleborder button  
+                       imagetag.each(function() {
+                  
+                       if($(this).hasClass("imageBorder")) {
+                          $(this).removeClass("imageBorder");
+                       }
+ 
+                       else {
+                          $(this).addClass("imageBorder");
+                       }
+
+                      } );
+
+                     } );                                                             
+
+                    } );     
+     
+
+                </script>
+                <style type="text/css">
+                        #images img {
+                                width: 20%;
+                        }
+
+                        .imageBorder {
+                                border: 5px solid black;
+                        }
+                </style>
+        </head>
+        <body>
+                <div id="buttons">
+                        <input type="button" id="unwrapImages" value="Unwrap" />
+                        <input type="button" id="addBorder" value="Add Borders" />
+                        <input type="button" id="removeBorder" value="Remove Borders" />
+                        <input type="button" id="toggleBorder" value="Toggle Borders" />
+                </div>
+
+                <div id="images">
+                        <div><img src="http://i.imgur.com/zriEI7a.jpg" /></div>
+                        <div><img src="http://i.imgur.com/Z3qVgEd.jpg" class="imageBorder" /></div>
+                        <div><img src="http://i.imgur.com/eZRcosY.jpg" /></div>
+                </div>
+        </body>
+</html>

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang ="en-US">
+<head>
+  <title> Weather Updates</title>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+  <script>
+   $(document).ready(function() {
+            
+      $("#getWeather").click(function() {  // event for the get weather button        
+
+        var getReq = '/weather/' + $("#zipcode").val();  // URL
+        
+        $.ajax({
+           url: getReq, method: 'GET', success: function(data) {  // AJAX get request 
+        
+              console.log(data);                 // print out the JSON information 
+ 
+              // update all the text fields with the weather data
+   
+              $("#city").val(data.name);        
+              $("#country").val(data.sys.country);    
+              $("#weather").val(data.weather[0].description);
+              var temp = data.main.temp - 273.16;              // Kelvin to Celsius
+              $("#temperature").val(temp);
+              $("#windspeed").val(data.wind.speed);
+              $("#wind_direction").val(data.wind.deg);
+               
+           }   
+        });
+     });
+
+      
+      $("#getCache").click(function() {  // event for the get cache button
+          
+        var getReq = '/cache';         // URL
+        
+        $.ajax({
+           url: getReq, method: 'GET', success: function(data) {  // AJAX get request
+
+              console.log(data);                 // print out the JSON information
+            
+           }
+        });
+     });
+
+
+     $("#deleteRegionWeather").click(function() {  // event for the delete cache button
+     
+        var getReq = '/weather/' + $("#zipcode").val();   // URL 
+
+         $.ajax({
+           url: getReq, method: 'DELETE', success: function() {  // AJAX delete request
+        
+               // cache cleared for the specified zip code
+
+           }
+        });
+     });                     
+   });
+
+   </script>
+</head>
+<body style = "background-color:lightblue">
+   <h1>Weather Updates</h1>
+   <p>The application will fetch weather data by Zip Code</p>
+   <br>
+  
+   <form>
+     Zip Code: <input type = "text" name = "zipcode" id = "zipcode" value = ""> 
+     <div id="buttons">
+        <input type="button" id="getWeather" value="Get Weather Data" />
+     </div>
+     <div id="cachebutton">
+        <input type="button" id="getCache" value="Get Weather Data Cache" />
+     </div>
+     <div id="deletebutton">
+        <input type="button" id="deleteRegionWeather" value="Delete Zip Code Data" />
+     </div>
+     <br>
+     <br>
+     City/Town:<br>
+     <input type = "text" name = "city" id = "city" value = "">
+     <br>
+     Country:<br>
+     <input type = "text" name = "country" id = "country" value = "">
+     <br>
+     Current Weather Description:<br>
+     <input type = "text" name = "weather" id = "weather" value = "">
+     <br>
+     Temperature (Celsius):<br>
+     <input type = "number" name = "temperature" id = "temperature" value = "">
+     <br>
+     Wind Speed (miles per hour):<br>
+     <input type = "number" name = "windspeed" id = "windspeed" value = "">
+     <br>
+     Wind Direction (degrees) :<br>
+     <input type = "text" name = "wind_direction" id = "wind_direction" value = "">
+     <br>
+     <br>
+   </form>
+</body>
+</html>

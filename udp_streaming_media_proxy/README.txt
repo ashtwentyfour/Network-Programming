@@ -2,7 +2,6 @@ To compile:
 
 g++ *.cpp -o run.exe -Wall
 
-
 To run the server:
 
 ./run.exe
